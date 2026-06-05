@@ -2,7 +2,7 @@
   "Provides a 'hierarchical set' data structure.  See `hier-set` for details."
   (:refer-clojure :exclude [descendants ancestors])
   (:import [java.util Set])
-  (:import [clojure.lang IFn ILookup IObj IPersistentCollection IPersistentSet
+  (:import [clojure.lang IFn IObj IPersistentCollection IPersistentSet
                          PersistentTreeSet Seqable Sorted]))
 
 (defprotocol Hierarchical
