@@ -29,7 +29,7 @@ include `key` if `strict?` is true, defaulting to false."))
 
   Object
   (toString [this] (str contents))
-  (hashCode [this] (hash contents))
+  (hashCode [this] (.hashCode contents))
   (equals [this other]
     (.equals contents other))
 

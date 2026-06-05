@@ -159,6 +159,14 @@
       (is (= '("b" "c" "d") (seq (.seqFrom hs "b" true))))
       (is (= '("b" "a") (seq (.seqFrom hs "b" false)))))))
 
+(deftest test-set-hashcode-contract
+  ;; java.util.Set requires hashCode to equal the sum of the members' hash
+  ;; codes, so an equal HashSet must hash identically.
+  (let [hs  (hier-set with-starts? "foo" "bar" "baz")
+        ref (java.util.HashSet. ["foo" "bar" "baz"])]
+    (is (= hs ref))
+    (is (= (.hashCode ^java.util.Set hs) (.hashCode ref)))))
+
 (deftest test-immutability
   ;; The java.util.Set mutators are intentionally not implemented; calling them
   ;; throws. Documents that a HierSet is immutable through the Set interface.
