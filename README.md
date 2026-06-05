@@ -1,5 +1,7 @@
 # hier-set
 
+[![test](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml)
+
 Library providing a "hierarchical set" data structure.  The provided data
 structure is set of elements with a defined hierarchical relationship.  An
 element is considered to be in the set either if it is provided as a primary
@@ -26,7 +28,7 @@ Add `hier-set` to the `:dependencies` list in your
 [Leiningen](https://github.com/technomancy/leiningen) `project.clj`:
 
 ```clj
-[hier-set "1.1.2"]
+[hier-set "1.2.0"]
 ```
 
 Primary usage is then through the `hier-set` and `hier-set-by` constructor
@@ -34,6 +36,11 @@ functions in the `hier-set.core` namespace.  In addition to set lookup as
 described above, the `hier-set.core/ancestors` and `hier-set.core/descendants`
 functions also provide access to lazy sequences of the ancestors and
 descendants respectively of a provided key.
+
+## Compatibility
+
+Requires Clojure 1.10 or later and JDK 8 or later.  Continuously tested against
+Clojure 1.10.3, 1.11.4, and 1.12.5 on JDK 8, 11, 17, and 21.
 
 ## Example
 
@@ -59,6 +66,9 @@ A trivial example:
 ## License
 
 Copyright © 2012, 2014 Marshall Bockrath-Vandegrift.
+
+Maintenance fork (2026) by Savyasachi, preserving the original Eclipse Public
+License.  Original project: https://github.com/llasram/hier-set
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
