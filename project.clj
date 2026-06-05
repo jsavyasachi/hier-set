@@ -1,4 +1,4 @@
-(defproject hier-set "1.2.0"
+(defproject io.github.jsavyasachi/hier-set "1.2.0"
   :description "A Clojure hierarchical set."
   :url "https://github.com/jsavyasachi/hier-set"
   :license {:name "Eclipse Public License 1.0"
@@ -6,6 +6,8 @@
   :min-lein-version "2.9.0"
   :pedantic? :warn
   :global-vars {*warn-on-reflection* true}
+  :deploy-repositories [["clojars" {:url "https://repo.clojars.org"
+                                    :sign-releases false}]]
   :dependencies [[org.clojure/clojure "1.12.5"]]
   :aliases {"all" ["with-profile" ~(str "+clojure-1-10:"
                                         "+clojure-1-11:"
