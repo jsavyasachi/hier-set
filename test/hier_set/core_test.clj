@@ -89,3 +89,80 @@
           (is (= '("adam.nested.deeply" "adam.nested" "adam")
                  (get orig test-key)))
           (is (= '("adam.nested.deeply" "adam") (get updated test-key))))))))
+
+(deftest test-not-found-semantics
+  ;; Pins the behavior that `get`/invoke honor a not-found default. This is the
+  ;; guard that lets the dead `ILookup` import be removed without regression: if
+  ;; `valAt` were ever (mis)implemented, these would change.
+  (let [hs (hier-set with-starts? "foo" "foo.bar")]
+    (testing "not-found is returned for non-descendants"
+      (is (= :missing (get hs "nope" :missing)))
+      (is (= :missing (hs "nope" :missing))))
+    (testing "members ignore not-found and return their ancestors"
+      (is (= '("foo") (get hs "foo.baz" :missing)))
+      (is (= '("foo") (hs "foo.baz" :missing))))))
+
+(deftest test-hier-set-by
+  ;; `hier-set` delegates to `hier-set-by` with `compare`; exercise the latter
+  ;; directly and confirm sorted ordering is honored.
+  (let [hs (hier-set-by with-starts? compare "foo" "foo.bar" "quux")]
+    (testing "behaves like hier-set"
+      (is (= '("foo") (get hs "foo.baz")))
+      (is (= '("foo.bar" "foo") (get hs "foo.bar.x"))))
+    (testing "members are held in comparator order"
+      (is (= '("foo" "foo.bar" "quux") (seq hs))))))
+
+(deftest test-metadata
+  (let [hs  (hier-set with-starts? "foo" "foo.bar")
+        hs2 (with-meta hs {:a 1})]
+    (testing "metadata roundtrips via IObj"
+      (is (nil? (meta hs)))
+      (is (= {:a 1} (meta hs2))))
+    (testing "with-meta preserves contents"
+      (is (= (seq hs) (seq hs2)))
+      (is (= '("foo") (get hs2 "foo.baz"))))))
+
+(deftest test-collection-ops
+  (let [hs (hier-set with-starts? "foo" "foo.bar" "quux")]
+    (testing "count"
+      (is (= 3 (count hs))))
+    (testing "empty returns an empty hier-set"
+      (is (= 0 (count (empty hs))))
+      (is (empty? (empty hs))))
+    (testing "seq yields ascending members"
+      (is (= '("foo" "foo.bar" "quux") (seq hs))))))
+
+(deftest test-java-set-interop
+  (let [^java.util.Set hs (hier-set with-starts? "foo" "foo.bar" "quux")]
+    (testing "size / isEmpty"
+      (is (= 3 (.size hs)))
+      (is (false? (.isEmpty hs)))
+      (is (true? (.isEmpty ^java.util.Set (hier-set with-starts?)))))
+    (testing "iterator yields ascending members"
+      (is (= '("foo" "foo.bar" "quux") (iterator-seq (.iterator hs)))))
+    (testing "toArray (no-arg) and toArray(T[]) both return all members"
+      ;; The 2-arg form is the regression guard for the JDK 11+ toArray fix.
+      (is (= #{"foo" "foo.bar" "quux"} (set (.toArray hs))))
+      (is (= #{"foo" "foo.bar" "quux"} (set (.toArray hs ^objects (make-array Object 0))))))
+    (testing "containsAll"
+      (is (true? (.containsAll hs ["foo" "quux"])))
+      (is (false? (.containsAll hs ["foo" "nope"]))))))
+
+(deftest test-sorted-protocol
+  (let [^clojure.lang.Sorted hs (hier-set with-starts? "a" "b" "c" "d")]
+    (testing "comparator is exposed"
+      (is (some? (.comparator hs))))
+    (testing "seq honors direction"
+      (is (= '("a" "b" "c" "d") (seq (.seq hs true))))
+      (is (= '("d" "c" "b" "a") (seq (.seq hs false)))))
+    (testing "seqFrom starts at the key"
+      (is (= '("b" "c" "d") (seq (.seqFrom hs "b" true))))
+      (is (= '("b" "a") (seq (.seqFrom hs "b" false)))))))
+
+(deftest test-immutability
+  ;; The java.util.Set mutators are intentionally not implemented; calling them
+  ;; throws. Documents that a HierSet is immutable through the Set interface.
+  (let [^java.util.Set hs (hier-set with-starts? "foo")]
+    (is (thrown? AbstractMethodError (.add hs "x")))
+    (is (thrown? AbstractMethodError (.remove hs "foo")))
+    (is (thrown? AbstractMethodError (.clear hs)))))
