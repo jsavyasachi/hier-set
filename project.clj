@@ -6,8 +6,6 @@
   :min-lein-version "2.9.0"
   :pedantic? :warn
   :global-vars {*warn-on-reflection* true}
-  :deploy-repositories [["clojars" {:url "https://repo.clojars.org"
-                                    :sign-releases false}]]
   :dependencies [[org.clojure/clojure "1.12.5"]]
   :aliases {"all" ["with-profile" ~(str "+clojure-1-10:"
                                         "+clojure-1-11:"
