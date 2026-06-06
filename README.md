@@ -25,11 +25,16 @@ multiple inheritance.
 
 ## Usage
 
-Add `hier-set` to the `:dependencies` list in your
-[Leiningen](https://github.com/technomancy/leiningen) `project.clj`:
+Leiningen/Boot (`project.clj`):
 
 ```clj
-[hier-set "1.2.0"]
+[net.clojars.savya/hier-set "1.2.0"]
+```
+
+Clojure CLI/`deps.edn`:
+
+```clj
+net.clojars.savya/hier-set {:mvn/version "1.2.0"}
 ```
 
 Primary usage is then through the `hier-set` and `hier-set-by` constructor
@@ -49,19 +54,18 @@ A trivial example:
 
 ```clj
 (ns example.hier-set
-  (:require [hier-set.core :as hs])
-  (:use [hier-set.core :only [hier-set]])
+  (:require [hier-set.core :as hs :refer [hier-set]]))
 
-(def with-starts? #(.startsWith %2 %1))
+(def starts-with? #(.startsWith %2 %1))
 
-(def hs (hier-set with-starts? "ack" "foo" "foo.bar" "quux")
+(def h (hier-set starts-with? "ack" "foo" "foo.bar" "quux"))
 
-(get hs "bar")              ;;=> nil
-(get hs "foo")              ;;=> ("foo")
-(get hs "foo.bar.baz")      ;;=> ("foo.bar" "foo")
-(hs/ancestors hs "bar")     ;;=> ()
-(hs/ancestors hs "foo.baz") ;;=> ("foo")
-(hs/descendants hs "foo")   ;;=> ("foo" "foo.bar")
+(get h "bar")              ;;=> nil
+(get h "foo")              ;;=> ("foo")
+(get h "foo.bar.baz")      ;;=> ("foo.bar" "foo")
+(hs/ancestors h "bar")     ;;=> ()
+(hs/ancestors h "foo.baz") ;;=> ("foo")
+(hs/descendants h "foo")   ;;=> ("foo" "foo.bar")
 ```
 
 ## License
