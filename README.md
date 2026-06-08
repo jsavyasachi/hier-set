@@ -1,6 +1,7 @@
 # hier-set
 
 [![Clojars Project](https://img.shields.io/clojars/v/net.clojars.savya/hier-set.svg)](https://clojars.org/net.clojars.savya/hier-set)
+[![cljdoc](https://cljdoc.org/badge/net.clojars.savya/hier-set)](https://cljdoc.org/d/net.clojars.savya/hier-set/CURRENT)
 [![test](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml)
 
 Library providing a "hierarchical set" data structure.  The provided data
