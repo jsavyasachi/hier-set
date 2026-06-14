@@ -1,4 +1,4 @@
-(defproject net.clojars.savya/hier-set "1.2.0"
+(defproject net.clojars.savya/hier-set "1.2.1"
   :description "A Clojure hierarchical set."
   :url "https://github.com/jsavyasachi/hier-set"
   :license {:name "Eclipse Public License 1.0"

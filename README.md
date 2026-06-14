@@ -33,13 +33,13 @@ multiple inheritance.
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/hier-set "1.2.0"]
+[net.clojars.savya/hier-set "1.2.1"]
 ```
 
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/hier-set {:mvn/version "1.2.0"}
+net.clojars.savya/hier-set {:mvn/version "1.2.1"}
 ```
 
 ## Usage
