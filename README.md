@@ -4,12 +4,16 @@
 [![cljdoc](https://cljdoc.org/badge/net.clojars.savya/hier-set)](https://cljdoc.org/d/net.clojars.savya/hier-set/CURRENT)
 [![test](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml)
 
-Library providing a "hierarchical set" data structure.  The provided data
-structure is set of elements with a defined hierarchical relationship.  An
-element is considered to be in the set either if it is provided as a primary
-set member or if it is a descendant of any such element.  Lookup in the set not
-only determines set membership, but also finds all primary set members which
-are ancestors of the lookup element.
+A "hierarchical set" data structure for Clojure: a set of elements with a
+defined hierarchical relationship, where an element is a member if it is a
+primary member or a descendant of one. Lookup returns set membership *and* all
+primary members that are ancestors of the lookup element.
+
+## Stack
+
+<a href="https://clojure.org"><img src="https://img.shields.io/badge/Clojure-5881D8?style=flat&logo=clojure&logoColor=fff" alt="Clojure" /></a>
+
+## Why
 
 The hierarchical relationship is defined by the element sort-order and a
 separate containment predicate, with the following constraints:
@@ -24,19 +28,21 @@ hierarchical filesystems, or IP networks.  It is inappropriate for modeling
 complex, ad hoc hierarchies, such as the relationships between classes with
 multiple inheritance.
 
-## Usage
+## Installation
 
-Leiningen/Boot (`project.clj`):
+Leiningen (`project.clj`):
 
 ```clj
 [net.clojars.savya/hier-set "1.2.0"]
 ```
 
-Clojure CLI/`deps.edn`:
+Clojure CLI (`deps.edn`):
 
 ```clj
 net.clojars.savya/hier-set {:mvn/version "1.2.0"}
 ```
+
+## Usage
 
 Primary usage is then through the `hier-set` and `hier-set-by` constructor
 functions in the `hier-set.core` namespace.  In addition to set lookup as
