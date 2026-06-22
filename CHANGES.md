@@ -1,5 +1,15 @@
 # Changes
 
+## 1.2.1
+
+Docs and build-config release.
+
+- Standardize the README to the canonical skeleton; add Clojars and cljdoc
+  badges; fix the install coordinate, document deps.edn usage, and repair the
+  example.
+- Move the Clojars deploy config to the global Leiningen profile (no consumer
+  impact).
+
 ## 1.2.0
 
 Maintenance/modernization release (fork).
