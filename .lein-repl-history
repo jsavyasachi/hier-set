@@ -1,0 +1,7 @@
+(require (quote [hier-set.core :as hs :refer [hier-set]]))
+(def sw? #(.startsWith %2 %1))
+(def h (hier-set sw? "ack" "foo" "foo.bar" "quux"))
+(println "get foo.bar.baz =>" (get h "foo.bar.baz"))
+(println "ancestors foo.baz =>" (hs/ancestors h "foo.baz"))
+(println "descendants foo =>" (hs/descendants h "foo"))
+(println "get bar =>" (get h "bar"))

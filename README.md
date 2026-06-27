@@ -79,8 +79,8 @@ A trivial example:
 
 Copyright © 2012, 2014 Marshall Bockrath-Vandegrift.
 
-Maintenance fork (2026) by Savyasachi, preserving the original Eclipse Public
-License.  Original project: https://github.com/llasram/hier-set
+Maintenance fork (2026) by Savyasachi, original: https://github.com/llasram/hier-set.
+Distributed under the [Eclipse Public License 1.0](https://www.eclipse.org/legal/epl-v10.html), preserving the original license.
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
