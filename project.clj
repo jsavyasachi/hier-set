@@ -15,4 +15,8 @@
              :clojure-1-11 {:dependencies
                             [[org.clojure/clojure "1.11.4"]]}
              :clojure-1-12 {:dependencies
-                            [[org.clojure/clojure "1.12.5"]]}})
+                            [[org.clojure/clojure "1.12.5"]]}}
+  :deploy-repositories [["clojars" {:url "https://repo.clojars.org"
+                                    :username :env/clojars_username
+                                    :password :env/clojars_password
+                                    :sign-releases false}]])
