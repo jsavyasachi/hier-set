@@ -12,6 +12,8 @@ primary members that are ancestors of the lookup element.
 ## Stack
 
 <a href="https://clojure.org"><img src="https://img.shields.io/badge/Clojure-5881D8?style=flat&logo=clojure&logoColor=fff" alt="Clojure" /></a>
+<a href="https://clojure.org/guides/deps_and_cli"><img src="https://img.shields.io/badge/deps.edn-5881D8?style=flat&logo=clojure&logoColor=fff" alt="deps.edn" /></a>
+<a href="https://clojure.github.io/tools.build/"><img src="https://img.shields.io/badge/tools.build-5881D8?style=flat&logo=clojure&logoColor=fff" alt="tools.build" /></a>
 
 ## Why
 
@@ -30,17 +32,20 @@ multiple inheritance.
 
 ## Installation
 
+Clojure CLI (`deps.edn`):
+
+```clj
+net.clojars.savya/hier-set {:mvn/version "1.2.1"}
+```
+
 Leiningen (`project.clj`):
 
 ```clj
 [net.clojars.savya/hier-set "1.2.1"]
 ```
 
-Clojure CLI (`deps.edn`):
-
-```clj
-net.clojars.savya/hier-set {:mvn/version "1.2.1"}
-```
+Run tests with `clojure -M:test`. Build the JAR with
+`clojure -T:build jar`, or deploy with `clojure -T:build deploy`.
 
 ## Usage
 
