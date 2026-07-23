@@ -35,13 +35,13 @@ multiple inheritance.
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/hier-set {:mvn/version "1.2.1"}
+net.clojars.savya/hier-set {:mvn/version "1.2.2"}
 ```
 
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/hier-set "1.2.1"]
+[net.clojars.savya/hier-set "1.2.2"]
 ```
 
 Run tests with `clojure -M:test`. Build the JAR with
