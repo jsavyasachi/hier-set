@@ -1,18 +1,18 @@
 (ns hier-set.core
-  "Provides a 'hierarchical set' data structure.  See `hier-set` for details."
+  "Provides a 'hierarchical set' data structure. See `hier-set` for details."
   (:refer-clojure :exclude [descendants ancestors])
   (:import [java.util Set])
   (:import [clojure.lang IFn IObj IPersistentCollection IPersistentSet
                          PersistentTreeSet Seqable Sorted]))
 
 (defprotocol Hierarchical
-  "Operations on collections defining hierarchical relationships."
+  "Defines operations on collections with hierarchical relationships."
   (ancestors [coll key] [coll key strict?]
-    "Return a lazy sequence of all ancestors of `key` in `coll`.  Do not
-include `key` if `strict?` is true, defaulting to false.")
+    "Returns a lazy sequence of all ancestors of `key` in `coll`. Do not
+include `key` when `strict?` is true. The default is false.")
   (descendants [coll key] [coll key strict?]
-    "Return a lazy sequence of all descendants of `key` in `coll`.  Do not
-include `key` if `strict?` is true, defaulting to false."))
+    "Returns a lazy sequence of all descendants of `key` in `coll`. Do not
+include `key` when `strict?` is true. The default is false."))
 
 (defn- strictify
   [f coll key strict?]
@@ -22,9 +22,9 @@ include `key` if `strict?` is true, defaulting to false."))
       result)))
 
 (deftype HierSet [meta hcontains? ^PersistentTreeSet contents parents]
-  ;; meta - the instance's IObj metadata
+  ;; meta - the IObj metadata of the instance
   ;; hcontains? - the containment predicate function
-  ;; contents - the sorted set of the HierSet's primary members
+  ;; contents - the sorted set of primary HierSet members
   ;; parents - map of members to their immediate parent members
 
   Object
@@ -104,7 +104,7 @@ include `key` if `strict?` is true, defaulting to false."))
     (get this key not-found)))
 
 (defn hier-set-by
-  "As hier-set, but specifying the comparator to use for element comparison."
+  "Like hier-set, but specifies the comparator for element comparison."
   [hcontains? comparator & keys]
   (letfn [(find-parent [[parents ancestors] key]
             (let [not-ancestor? (fn [k] (not (hcontains? k key)))
@@ -115,20 +115,19 @@ include `key` if `strict?` is true, defaulting to false."))
       (HierSet. nil hcontains? contents parents))))
 
 (defn hier-set
-  "Constructs a hierarchical set with the containment predicate `hcontains?`
-and primary members `keys`.  The `hcontains?` predicate should be a function of
-two arguments over the type of the set elements; it should return `true` if the
-first argument contains the second, and false otherwise.
+  "Creates a hierarchical set with the containment predicate `hcontains?` and
+primary members `keys`. The `hcontains?` predicate should be a function with
+two arguments of the set element type. It should return `true` if the first
+argument contains the second, and false otherwise.
 
-A hierarchical set is a set of elements which may hierarchically contain other
-elements.  The hierarchical relationship is defined by the element sort-order
-and the `hcontains?` predicate, with the following constraints: (a) elements
-must sort prior to any descendants; and (b) elements must contain all elements
-which sort between themselves and any descendant.  Note that this means
-that `(hcontains? x x)` must be true, and that elements are thus considered to
-be both ancestors and descendants of themselves.
+A hierarchical set is a set of elements that can contain other elements
+hierarchically. The element sort-order and the `hcontains?` predicate define
+the hierarchical relationship. These constraints apply: (a) elements must sort
+before any descendants; and (b) elements must contain all elements that sort
+between themselves and any descendant. This means `(hcontains? x x)` must be
+true. Elements are both ancestors and descendants of themselves.
 
-Lookup in the set returns a seq of all primary members which are ancestors of
-the provided key, or nil if the provided key is not a descendant of any primary
-member."
+Lookup in the set returns a seq of all primary members that are ancestors of the
+provided key. It returns nil if the provided key is not a descendant of a
+primary member."
   [hcontains? & keys] (apply hier-set-by hcontains? compare keys))

@@ -4,7 +4,7 @@
   (:use [clojure.test]))
 
 (defn with-starts?
-  "Does string s begin with the provided prefix?"
+  "Does the string s start with the provided prefix?"
   {:inline (fn [prefix s & to]
              `(let [^String s# ~s, ^String prefix# ~prefix]
                 (.startsWith s# prefix# ~@(when (seq to) [`(int ~@to)]))))
@@ -14,19 +14,19 @@
 
 (deftest test-fundamental
   (let [hs (hier-set with-starts?)]
-    (testing "Able to compare equivalence with other sets"
+    (testing "Compares equal to other sets"
       (is (= #{} hs))
       (is (= hs #{})))
-    (is (= "#{}" (str hs)) "Able to represent as a string")))
+    (is (= "#{}" (str hs)) "Represents as a string")))
 
 (deftest test-basic
   (let [hs (hier-set with-starts? "foo" "foo.bar" "foo.bar.baz" "quux")]
-    (testing "Able to retrieve ancestor primary elements"
+    (testing "Gets ancestor primary elements"
       (testing "using `get`"
         (is (= nil (get hs "bar")))
         (is (= '("foo") (get hs "foo.baz")))
         (is (= '("foo.bar" "foo") (get hs "foo.bar.bar"))))
-      (testing "by invoking the set as a function"
+      (testing "by calling the set as a function"
         (is (= nil (hs "bar")))
         (is (= '("foo") (hs "foo.baz")))
         (is (= '("foo.bar" "foo") (hs "foo.bar.bar"))))
@@ -34,7 +34,7 @@
         (is (= '() (hs/ancestors hs "bar")))
         (is (= '("foo") (hs/ancestors hs "foo.baz")))
         (is (= '("foo.bar" "foo") (hs/ancestors hs "foo.bar.bar")))))
-    (testing "Able to retrieve descendant primary elements"
+    (testing "Gets descendant primary elements"
       (testing "using `descendants`"
         (is (= '() (hs/descendants hs "bar")))
         (is (= '("foo.bar" "foo.bar.baz") (hs/descendants hs "foo.bar")))))))
@@ -47,7 +47,7 @@
 
 (deftest test-modification
   (let [orig (apply hier-set with-starts? testing-data)]
-    (testing "Able to add elements to the set"
+    (testing "Adds elements to the set"
       (testing "with no existing relationship"
         (let [updated (conj orig "chris")]
           (is (= nil (get orig "chris")))
@@ -68,7 +68,7 @@
           (is (= '("david.nested.deeply" "david") (get orig test-key)))
           (is (= '("david.nested.deeply" "david.nested" "david")
                  (get updated test-key))))))
-    (testing "Able to remove elements from the set"
+    (testing "Removes elements from the set"
       (testing "with no existing relationship"
         (let [updated (disj orig "betty")]
           (is (= '("betty") (get orig "betty")))
@@ -91,9 +91,9 @@
           (is (= '("adam.nested.deeply" "adam") (get updated test-key))))))))
 
 (deftest test-not-found-semantics
-  ;; Pins the behavior that `get`/invoke honor a not-found default. This is the
-  ;; guard that lets the dead `ILookup` import be removed without regression: if
-  ;; `valAt` were ever (mis)implemented, these would change.
+  ;; Makes sure `get`/invoke use a not-found default. This test lets us remove
+  ;; the unused `ILookup` import without a regression. An incorrect `valAt`
+  ;; implementation changes the test result.
   (let [hs (hier-set with-starts? "foo" "foo.bar")]
     (testing "not-found is returned for non-descendants"
       (is (= :missing (get hs "nope" :missing)))
@@ -103,22 +103,22 @@
       (is (= '("foo") (hs "foo.baz" :missing))))))
 
 (deftest test-hier-set-by
-  ;; `hier-set` delegates to `hier-set-by` with `compare`; exercise the latter
-  ;; directly and confirm sorted ordering is honored.
+  ;; `hier-set` delegates to `hier-set-by` with `compare`. Test `hier-set-by`
+  ;; directly and confirm that it uses the sorted order.
   (let [hs (hier-set-by with-starts? compare "foo" "foo.bar" "quux")]
     (testing "behaves like hier-set"
       (is (= '("foo") (get hs "foo.baz")))
       (is (= '("foo.bar" "foo") (get hs "foo.bar.x"))))
-    (testing "members are held in comparator order"
+    (testing "members use comparator order"
       (is (= '("foo" "foo.bar" "quux") (seq hs))))))
 
 (deftest test-metadata
   (let [hs  (hier-set with-starts? "foo" "foo.bar")
         hs2 (with-meta hs {:a 1})]
-    (testing "metadata roundtrips via IObj"
+    (testing "metadata round-trips through IObj"
       (is (nil? (meta hs)))
       (is (= {:a 1} (meta hs2))))
-    (testing "with-meta preserves contents"
+    (testing "with-meta keeps contents"
       (is (= (seq hs) (seq hs2)))
       (is (= '("foo") (get hs2 "foo.baz"))))))
 
@@ -138,10 +138,10 @@
       (is (= 3 (.size hs)))
       (is (false? (.isEmpty hs)))
       (is (true? (.isEmpty ^java.util.Set (hier-set with-starts?)))))
-    (testing "iterator yields ascending members"
+    (testing "iterator returns ascending members"
       (is (= '("foo" "foo.bar" "quux") (iterator-seq (.iterator hs)))))
-    (testing "toArray (no-arg) and toArray(T[]) both return all members"
-      ;; The 2-arg form is the regression guard for the JDK 11+ toArray fix.
+    (testing "toArray (no-arg) and toArray(T[]) return all members"
+      ;; The two-argument form tests the JDK 11+ toArray fix.
       (is (= #{"foo" "foo.bar" "quux"} (set (.toArray hs))))
       (is (= #{"foo" "foo.bar" "quux"} (set (.toArray hs ^objects (make-array Object 0))))))
     (testing "containsAll"
@@ -150,26 +150,26 @@
 
 (deftest test-sorted-protocol
   (let [^clojure.lang.Sorted hs (hier-set with-starts? "a" "b" "c" "d")]
-    (testing "comparator is exposed"
+    (testing "comparator is available"
       (is (some? (.comparator hs))))
-    (testing "seq honors direction"
+    (testing "seq uses the direction"
       (is (= '("a" "b" "c" "d") (seq (.seq hs true))))
       (is (= '("d" "c" "b" "a") (seq (.seq hs false)))))
-    (testing "seqFrom starts at the key"
+    (testing "seqFrom starts with the key"
       (is (= '("b" "c" "d") (seq (.seqFrom hs "b" true))))
       (is (= '("b" "a") (seq (.seqFrom hs "b" false)))))))
 
 (deftest test-set-hashcode-contract
-  ;; java.util.Set requires hashCode to equal the sum of the members' hash
-  ;; codes, so an equal HashSet must hash identically.
+  ;; java.util.Set requires hashCode to equal the sum of member hash codes. An
+  ;; equal HashSet must have the same hash code.
   (let [hs  (hier-set with-starts? "foo" "bar" "baz")
         ref (java.util.HashSet. ["foo" "bar" "baz"])]
     (is (= hs ref))
     (is (= (.hashCode ^java.util.Set hs) (.hashCode ref)))))
 
 (deftest test-immutability
-  ;; The java.util.Set mutators are intentionally not implemented; calling them
-  ;; throws. Documents that a HierSet is immutable through the Set interface.
+  ;; HierSet does not implement the mutators of java.util.Set. A call to a
+  ;; mutator throws. This test shows that a HierSet is immutable through the Set interface.
   (let [^java.util.Set hs (hier-set with-starts? "foo")]
     (is (thrown? AbstractMethodError (.add hs "x")))
     (is (thrown? AbstractMethodError (.remove hs "foo")))

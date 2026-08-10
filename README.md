@@ -4,9 +4,9 @@
 [![cljdoc](https://cljdoc.org/badge/net.clojars.savya/hier-set)](https://cljdoc.org/d/net.clojars.savya/hier-set/CURRENT)
 [![test](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml/badge.svg)](https://github.com/jsavyasachi/hier-set/actions/workflows/test.yml)
 
-A "hierarchical set" data structure for Clojure: a set of elements with a
-defined hierarchical relationship, where an element is a member if it is a
-primary member or a descendant of one. Lookup returns set membership *and* all
+A "hierarchical set" data structure for Clojure has elements in a defined
+hierarchical relationship. An element is a member if it is a primary member or
+a descendant of a primary member. Lookup returns set membership *and* all
 primary members that are ancestors of the lookup element.
 
 ## Stack
@@ -17,18 +17,17 @@ primary members that are ancestors of the lookup element.
 
 ## Why
 
-The hierarchical relationship is defined by the element sort-order and a
-separate containment predicate, with the following constraints:
+The element sort-order and a separate containment predicate define the
+hierarchical relationship. These constraints apply:
 
-* elements must sort prior to any descendants; and
-* elements must contain all elements which sort between themselves and any
+* Elements must sort before any descendants.
+* Elements must contain all elements that sort between themselves and any
   descendant.
 
-This is sufficient to represent simple hierarchical systems where the hierarchy
-is implicit in the entities involved, such as the Java package system,
-hierarchical filesystems, or IP networks.  It is inappropriate for modeling
-complex, ad hoc hierarchies, such as the relationships between classes with
-multiple inheritance.
+Use this library for simple hierarchical systems. The hierarchy is implicit in
+the entities, such as the Java package system, hierarchical filesystems, or IP
+networks. Do not use this library for complex ad hoc hierarchies, such as
+relationships between classes with multiple inheritance.
 
 ## Installation
 
@@ -49,20 +48,20 @@ Run tests with `clojure -M:test`. Build the JAR with
 
 ## Usage
 
-Primary usage is then through the `hier-set` and `hier-set-by` constructor
-functions in the `hier-set.core` namespace.  In addition to set lookup as
-described above, the `hier-set.core/ancestors` and `hier-set.core/descendants`
-functions also provide access to lazy sequences of the ancestors and
-descendants respectively of a provided key.
+Use the `hier-set` and `hier-set-by` constructor functions in the
+`hier-set.core` namespace. The `hier-set.core/ancestors` and
+`hier-set.core/descendants` functions return lazy sequences of the ancestors
+and descendants of a provided key.
 
 ## Compatibility
 
-Requires Clojure 1.10 or later and JDK 8 or later.  Continuously tested against
-Clojure 1.10.3, 1.11.4, and 1.12.5 on JDK 8, 11, 17, and 21.
+The library requires Clojure 1.10 or later and JDK 8 or later. The library is
+continuously tested against Clojure 1.10.3, 1.11.4, and 1.12.5 on JDK 8, 11,
+17, and 21.
 
 ## Example
 
-A trivial example:
+A basic example:
 
 ```clj
 (ns example.hier-set
