@@ -31,7 +31,7 @@ Make sure each change meets these requirements:
 - Follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:` …).
 - Use the imperative mood for the subject. Keep it under about 72 characters.
-- Update `CHANGES.md` / `CHANGELOG.md` when users can see your change.
+- Update `CHANGELOG.md` when users can see your change.
 - Rebase on the latest `main` before opening the pull request.
 
 ## License
