@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         jdk: ['17', '21']
-        clojure: ['1.11', '1.12']
+        clojure: ['1.10', '1.11', '1.12']
     name: jdk ${{ matrix.jdk }} / clojure ${{ matrix.clojure }}
     steps:
       - uses: actions/checkout@v4
@@ -32,3 +32,14 @@ jobs:
           key: m2-${{ hashFiles('deps.edn') }}
           restore-keys: m2-
       - run: clojure -M:${{ matrix.clojure }}:test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clj-kondo
+        run: |
+          curl -sSfLO https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo
+          chmod +x install-clj-kondo
+          ./install-clj-kondo
+      - run: clj-kondo --lint src test

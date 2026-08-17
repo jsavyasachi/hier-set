@@ -1,0 +1,14 @@
+{:config-in-ns
+ {hier-set.core
+  ;; `this` is required by Object method signatures in the collection type but
+  ;; is intentionally unused in these implementations.
+  {:linters
+   {:unused-binding
+    {:level :off}}}
+
+  ;; Preserve the test namespace's existing :use declarations; changing test code
+  ;; solely for lint style is outside this hardening pass.
+  hier-set.core-test
+  {:linters
+   {:use
+    {:level :off}}}}}
