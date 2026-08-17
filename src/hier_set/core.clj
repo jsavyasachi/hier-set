@@ -84,7 +84,7 @@ include `key` when `strict?` is true. The default is false."))
     (seq (ancestors this key)))
 
   Set
-  (containsAll [this coll] (.containsAll contents coll))
+  (containsAll [this coll] (every? #(.contains this %) coll))
   (isEmpty [this] (.isEmpty contents))
   (iterator [this] (.iterator contents))
   (size [this] (.size contents))

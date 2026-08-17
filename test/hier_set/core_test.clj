@@ -146,7 +146,14 @@
       (is (= #{"foo" "foo.bar" "quux"} (set (.toArray hs ^objects (make-array Object 0))))))
     (testing "containsAll"
       (is (true? (.containsAll hs ["foo" "quux"])))
-      (is (false? (.containsAll hs ["foo" "nope"]))))))
+      (is (false? (.containsAll hs ["foo" "nope"])))
+      (testing "uses hierarchical contains semantics"
+        (let [all-contained ["foo.baz" "foo.bar.baz"]
+              one-not-contained ["foo.baz" "nope"]]
+          (is (every? #(.contains hs %) all-contained))
+          (is (true? (.containsAll hs all-contained)))
+          (is (not-every? #(.contains hs %) one-not-contained))
+          (is (false? (.containsAll hs one-not-contained))))))))
 
 (deftest test-sorted-protocol
   (let [^clojure.lang.Sorted hs (hier-set with-starts? "a" "b" "c" "d")]
