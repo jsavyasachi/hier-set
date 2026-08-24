@@ -42,6 +42,27 @@
         (is (= '() (hs/descendants hs "bar")))
         (is (= '("foo.bar" "foo.bar.baz") (hs/descendants hs "foo.bar")))))))
 
+(deftest test-parent-child-queries
+  (let [hs (hier-set with-starts?
+                     "foo" "foo.bar" "foo.bar.baz" "foo.quux"
+                     "quux")]
+    (testing "parent returns the immediate parent"
+      (is (= "foo.bar" (hs/parent hs "foo.bar.baz")))
+      (is (nil? (hs/parent hs "foo")))
+      (is (nil? (hs/parent hs "missing"))))
+    (testing "children returns immediate children in member order"
+      (is (= '("foo.bar" "foo.quux") (hs/children hs "foo")))
+      (is (= '("foo.bar.baz") (hs/children hs "foo.bar")))
+      (is (= '() (hs/children hs "missing"))))
+    (testing "roots returns members without parents in member order"
+      (is (= '("foo" "quux") (hs/roots hs))))
+    (testing "leaves returns members without children in member order"
+      (is (= '("foo.bar.baz" "foo.quux" "quux") (hs/leaves hs)))))
+  (testing "empty sets have no roots or leaves"
+    (let [hs (hier-set with-starts?)]
+      (is (= '() (hs/roots hs)))
+      (is (= '() (hs/leaves hs))))))
+
 (def ^:private testing-data
   ["adam" "adam.nested" "adam.nested.deeply"
    "betty"

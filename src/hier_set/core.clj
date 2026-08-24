@@ -103,6 +103,29 @@ include `key` when `strict?` is true. The default is false."))
   (invoke [this key not-found]
     (get this key not-found)))
 
+(defn parent
+  "Returns the immediate parent of `key`, or nil when it has no parent."
+  [^HierSet coll key]
+  (get (.parents coll) key))
+
+(defn children
+  "Returns the immediate children of `key` in sorted order."
+  [^HierSet coll key]
+  (let [parents (.parents coll)]
+    (filter #(= key (get parents %)) (.contents coll))))
+
+(defn roots
+  "Returns the members without parents in sorted order."
+  [^HierSet coll]
+  (let [parents (.parents coll)]
+    (filter #(nil? (get parents %)) (.contents coll))))
+
+(defn leaves
+  "Returns the members without children in sorted order."
+  [^HierSet coll]
+  (let [parents (set (vals (.parents coll)))]
+    (remove parents (.contents coll))))
+
 (defn hier-set-by
   "Like hier-set, but specifies the comparator for element comparison."
   [hcontains? comparator & keys]
