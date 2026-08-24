@@ -8,11 +8,17 @@
 (defprotocol Hierarchical
   "Defines operations on collections with hierarchical relationships."
   (ancestors [coll key] [coll key strict?]
-    "Returns a lazy sequence of all ancestors of `key` in `coll`. Do not
-include `key` when `strict?` is true. The default is false.")
+    "Returns a lazy sequence of ancestors of `key` in a Hierarchical `coll`.
+`key` must be a value comparable to the collection's elements. With the
+two-argument arity, `key` itself is included when present; pass the boolean
+`strict?` as true to omit it. The result is ordered from the nearest ancestor
+to the farthest, and is empty when no primary member contains `key`.")
   (descendants [coll key] [coll key strict?]
-    "Returns a lazy sequence of all descendants of `key` in `coll`. Do not
-include `key` when `strict?` is true. The default is false."))
+    "Returns a lazy sequence of primary members below `key` in a Hierarchical
+`coll`. `key` must be a value comparable to the collection's elements. With
+the two-argument arity, `key` itself is included when present; pass the
+boolean `strict?` as true to omit it. The result is in the collection's sort
+order and is empty when no primary member is a descendant of `key`."))
 
 (defn- strictify
   [f coll key strict?]
@@ -104,7 +110,22 @@ include `key` when `strict?` is true. The default is false."))
     (get this key not-found)))
 
 (defn hier-set-by
-  "Like hier-set, but specifies the comparator for element comparison."
+  "Creates a HierSet using `comparator` for element comparison.
+
+`hcontains?` must be a two-argument function accepting two values of the
+element type and returning true when its first argument contains its second.
+`comparator` must accept two element values and return the usual negative,
+zero, or positive comparison result. The comparator is not merely a display
+order: it defines the order used to find ancestors and descendants. It must
+place every element before its descendants, and each ancestor must contain all
+elements sorted between it and those descendants. Comparator equality (a zero
+result) also makes two values the same set member, as with sorted-set-by.
+
+`keys` are the initial primary members. `conj` and `disj` are persistent
+operations: each returns a new HierSet and leaves its input unchanged. Unlike
+a mutable Java Set, the Java mutator methods are unsupported. HierSet's
+`contains` also recognizes descendants, while `get` and function invocation
+return the lazy sequence of primary ancestors rather than the queried value."
   [hcontains? comparator & keys]
   (letfn [(find-parent [[parents ancestors] key]
             (let [not-ancestor? (fn [k] (not (hcontains? k key)))
@@ -129,5 +150,11 @@ true. Elements are both ancestors and descendants of themselves.
 
 Lookup in the set returns a seq of all primary members that are ancestors of the
 provided key. It returns nil if the provided key is not a descendant of a
-primary member."
+primary member.
+
+`conj` and `disj` return new HierSets and never mutate the original. This is
+persistent behavior, even though HierSet also implements `java.util.Set`;
+that Java interface's mutator methods are unsupported. Unlike a standard
+sorted set, `contains` is true for a descendant that is not a primary member,
+and `get` returns the primary ancestors of its argument."
   [hcontains? & keys] (apply hier-set-by hcontains? compare keys))

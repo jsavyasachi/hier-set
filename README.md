@@ -79,6 +79,58 @@ A basic example:
 (hs/descendants h "foo")   ;;=> ("foo" "foo.bar")
 ```
 
+## Common workflows
+
+Use `hier-set-by` when the hierarchy has a comparator other than Clojure's
+default `compare`. The comparator must keep each ancestor before its
+descendants; comparator equality treats values as the same member.
+
+```clj
+(require '[clojure.string :as str])
+(require '[hier-set.core :as hs])
+
+(def normalize str/lower-case)
+(def contains-permission?
+  (fn [parent child]
+    (.startsWith ^String (normalize child) (normalize parent))))
+(def case-insensitive-compare
+  (fn [left right]
+    (compare (normalize left) (normalize right))))
+(def permissions
+  (hs/hier-set-by contains-permission? case-insensitive-compare
+                  "Admin" "Admin.Read" "User"))
+
+(get permissions "ADMIN.read.audit")
+;;=> ("Admin.Read" "Admin")
+```
+
+For network scopes or similar prefix hierarchies, the default comparator is
+enough when the scope strings sort from broad to narrow:
+
+```clj
+(def scopes
+  (hs/hier-set #(.startsWith ^String %2 ^String %1)
+               "10." "10.0." "192.168."))
+
+(get scopes "10.0.4.12")
+;;=> ("10.0." "10.")
+(hs/descendants scopes "10.")
+;;=> ("10." "10.0.")
+```
+
+`conj` and `disj` return new values, so updates can be kept as a separate
+version while the original remains unchanged:
+
+```clj
+(def base (hs/hier-set #(.startsWith ^String %2 ^String %1) "team"))
+(def with-read (conj base "team.read"))
+
+(get base "team.read.audit")
+;;=> ("team")
+(get with-read "team.read.audit")
+;;=> ("team.read" "team")
+```
+
 ## License
 
 Copyright © 2012, 2014 Marshall Bockrath-Vandegrift.
