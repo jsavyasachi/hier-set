@@ -1,8 +1,9 @@
 (ns hier-set.core-test
-  (:require [hier-set.core :as hs])
-  (:require [clojure.test.check :as tc]
+  (:require [clojure.datafy :as datafy]
+            [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
-            [clojure.test.check.properties :as prop])
+            [clojure.test.check.properties :as prop]
+            [hier-set.core :as hs])
   (:use [hier-set.core :only [hier-set hier-set-by]])
   (:use [clojure.test]))
 
@@ -326,3 +327,48 @@
                                (prop/for-all [case operation-gen]
                                  (check-after-every-operation case)))]
     (is (:result result) (pr-str result))))
+
+(deftest test-datafy
+  (let [hs (with-meta (hier-set with-starts? "foo" "foo.bar" "quux")
+             {:source :test})]
+    (is (= {:members ["foo" "foo.bar" "quux"]
+            :metadata {:source :test}}
+           (datafy/datafy hs))))
+  (is (= {:members [] :metadata nil}
+         (datafy/datafy (hier-set with-starts?)))))
+
+(deftest test-edn-round-trip
+  (let [original (with-meta (hier-set with-starts?
+                                      "foo" "foo.bar" "foo.bar.baz" "quux")
+                            {:ignored :by-serialization})
+        restored (hs/edn->hier-set with-starts? (hs/->edn original))]
+    (is (instance? hier_set.core.HierSet restored))
+    (is (= (seq original) (seq restored)))
+    (is (= (get original "foo.bar.more")
+           (get restored "foo.bar.more")))
+    (is (= (hs/ancestors original "foo.bar.baz.more")
+           (hs/ancestors restored "foo.bar.baz.more")))
+    (is (nil? (meta restored))))
+  (let [empty-set (hs/edn->hier-set with-starts?
+                                   (hs/->edn (hier-set with-starts?)))]
+    (is (instance? hier_set.core.HierSet empty-set))
+    (is (empty? empty-set))))
+
+(deftest test-edn-validation-and-comparator-limit
+  (testing "invalid serialized values are rejected"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts? nil)))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts? "not-edn")))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts?
+                                   (pr-str {:hier-set/version 1}))))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts?
+                                   (pr-str {:hier-set/version 1
+                                            :members [42]})))))
+  (testing "custom comparator data remains inspectable but is not serialized"
+    (let [reverse-compare #(compare %2 %1)
+          custom (hier-set-by with-starts? reverse-compare "a" "b")]
+      (is (= ["b" "a"] (:members (datafy/datafy custom))))
+      (is (thrown? clojure.lang.ExceptionInfo (hs/->edn custom))))))

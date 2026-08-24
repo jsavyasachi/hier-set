@@ -1,6 +1,9 @@
 (ns hier-set.core
   "Provides a 'hierarchical set' data structure. See `hier-set` for details."
   (:refer-clojure :exclude [descendants ancestors])
+  (:require [clojure.core.protocols]
+            [clojure.datafy]
+            [clojure.edn :as edn])
   (:import [java.util Set])
   (:import [clojure.lang IFn IObj IPersistentCollection IPersistentSet
                          PersistentTreeSet Seqable Sorted]))
@@ -32,6 +35,11 @@ include `key` when `strict?` is true. The default is false."))
   (hashCode [this] (.hashCode contents))
   (equals [this other]
     (.equals contents other))
+
+  clojure.core.protocols/Datafiable
+  (datafy [this]
+    {:members (vec contents)
+     :metadata meta})
 
   IObj
   (meta [this] meta)
@@ -125,6 +133,65 @@ include `key` when `strict?` is true. The default is false."))
   [^HierSet coll]
   (let [parents (set (vals (.parents coll)))]
     (remove parents (.contents coll))))
+
+(defn datafy
+  "Returns an inspectable map representation of a `HierSet`."
+  [^HierSet coll]
+  (clojure.datafy/datafy coll))
+
+(defn- serializable-member?
+  [member]
+  (or (string? member) (keyword? member)))
+
+(declare hier-set)
+
+(defn ->edn
+  "Serializes a `HierSet`'s primary members to a versioned EDN string.
+
+  The containment predicate is intentionally not serialized; callers must
+  provide it to `edn->hier-set`. Only sets using natural ordering and string
+  or keyword members are supported. Sets with custom comparators are rejected
+  because a comparator function cannot be safely or faithfully encoded in EDN.
+  Metadata is not part of this primary-member serialization format."
+  [coll]
+  (when-not (instance? HierSet coll)
+    (throw (ex-info "Expected a HierSet" {:value coll})))
+  (let [^HierSet coll coll
+        ^PersistentTreeSet contents (.-contents coll)
+        members (vec contents)]
+    (when-not (identical? compare (.comparator contents))
+      (throw (ex-info "Cannot serialize a HierSet with a custom comparator"
+                      {:comparator (.comparator contents)})))
+    (when-not (every? serializable-member? members)
+      (throw (ex-info "HierSet members must be strings or keywords for EDN serialization"
+                      {:members members})))
+    (pr-str {:hier-set/version 1
+             :members members})))
+
+(defn edn->hier-set
+  "Deserializes `edn` using `hcontains?` and natural member ordering.
+
+  `edn` must be a version 1 payload produced by `->edn`. The containment
+  predicate is not serialized and must be supplied by the caller."
+  [hcontains? edn]
+  (when-not (string? edn)
+    (throw (ex-info "HierSet EDN must be a string" {:edn edn})))
+  (let [payload (try
+                  (edn/read-string edn)
+                  (catch Exception e
+                    (throw (ex-info "Invalid HierSet EDN" {:edn edn} e))))]
+    (when-not (and (map? payload)
+                   (= #{:hier-set/version :members} (set (keys payload)))
+                   (= 1 (:hier-set/version payload))
+                   (contains? payload :members)
+                   (vector? (:members payload))
+                   (every? serializable-member? (:members payload)))
+      (throw (ex-info "Invalid HierSet EDN payload" {:payload payload})))
+    (try
+      (apply hier-set hcontains? (:members payload))
+      (catch Exception e
+        (throw (ex-info "HierSet EDN members violate the natural-order contract"
+                        {:members (:members payload)} e))))))
 
 (defn hier-set-by
   "Like hier-set, but specifies the comparator for element comparison."
