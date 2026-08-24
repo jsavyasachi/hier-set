@@ -45,6 +45,45 @@
    "david" "david.nested.deeply"
    "erin.nested"])
 
+(defn- benchmark-data
+  "Builds a wide hierarchy with a deep path in each branch."
+  []
+  (for [branch (range 50)
+        member (range 200)]
+    (let [root (format "branch-%02d" branch)]
+      (cond
+        (zero? member) root
+        (< member 20) (str root (apply str (map #(format ".%02d" %) (range 1 (inc member)))))
+        :else (str root (apply str (map #(format ".%02d" %) (range 1 20)))
+                   (format ".leaf-%03d" (- member 20)))))))
+
+(defn- benchmark-time
+  [f value]
+  (dotimes [_ 3]
+    (f value))
+  (let [start (System/nanoTime)]
+    (dotimes [_ 5]
+      (f value))
+    (/ (- (System/nanoTime) start) 5e6)))
+
+(deftest ^:benchmark test-large-update-performance
+  (let [members (benchmark-data)
+        baseline (apply hier-set with-starts? members)
+        broad-key "branch"
+        branch-key "branch-00"
+        leaf-key "branch-00.01.02.03.04.05.06.07.08.09.10.11.12.13.14.15.16.17.18.19.leaf-000"
+        conj-time (benchmark-time #(conj % broad-key) baseline)
+        disj-time (benchmark-time #(disj % branch-key) baseline)
+        conj-result (conj baseline broad-key)
+        disj-result (disj baseline branch-key)]
+    (println (format "large-update benchmark: members=%d conj-ms=%.3f disj-ms=%.3f"
+                     (count baseline) conj-time disj-time))
+    (is (= 10001 (count conj-result)))
+    (is (= 9999 (count disj-result)))
+    (is (= 22 (count (get conj-result leaf-key))))
+    (is (= "branch" (last (get conj-result leaf-key))))
+    (is (= '("branch-00.01") (get disj-result "branch-00.01")))))
+
 (deftest test-modification
   (let [orig (apply hier-set with-starts? testing-data)]
     (testing "Adds elements to the set"
