@@ -34,13 +34,13 @@ relationships between classes with multiple inheritance.
 Clojure CLI (`deps.edn`):
 
 ```clj
-net.clojars.savya/hier-set {:mvn/version "1.2.3"}
+net.clojars.savya/hier-set {:mvn/version "1.3.0"}
 ```
 
 Leiningen (`project.clj`):
 
 ```clj
-[net.clojars.savya/hier-set "1.2.3"]
+[net.clojars.savya/hier-set "1.3.0"]
 ```
 
 Run tests with `clojure -M:test`. Build the JAR with
@@ -52,6 +52,13 @@ Use the `hier-set` and `hier-set-by` constructor functions in the
 `hier-set.core` namespace. The `hier-set.core/ancestors` and
 `hier-set.core/descendants` functions return lazy sequences of the ancestors
 and descendants of a provided key.
+
+`clojure.datafy/datafy` returns a plain map containing the sorted primary
+members and set metadata. Use `hier-set.core/->edn` and
+`hier-set.core/edn->hier-set` to round-trip primary members; the containment
+predicate must be supplied when reading. EDN serialization supports only
+string or keyword members with natural ordering, and rejects custom
+comparators because comparator functions cannot be safely serialized.
 
 ## Compatibility
 
@@ -77,6 +84,58 @@ A basic example:
 (hs/ancestors h "bar")     ;;=> ()
 (hs/ancestors h "foo.baz") ;;=> ("foo")
 (hs/descendants h "foo")   ;;=> ("foo" "foo.bar")
+```
+
+## Common workflows
+
+Use `hier-set-by` when the hierarchy has a comparator other than Clojure's
+default `compare`. The comparator must keep each ancestor before its
+descendants; comparator equality treats values as the same member.
+
+```clj
+(require '[clojure.string :as str])
+(require '[hier-set.core :as hs])
+
+(def normalize str/lower-case)
+(def contains-permission?
+  (fn [parent child]
+    (.startsWith ^String (normalize child) (normalize parent))))
+(def case-insensitive-compare
+  (fn [left right]
+    (compare (normalize left) (normalize right))))
+(def permissions
+  (hs/hier-set-by contains-permission? case-insensitive-compare
+                  "Admin" "Admin.Read" "User"))
+
+(get permissions "ADMIN.read.audit")
+;;=> ("Admin.Read" "Admin")
+```
+
+For network scopes or similar prefix hierarchies, the default comparator is
+enough when the scope strings sort from broad to narrow:
+
+```clj
+(def scopes
+  (hs/hier-set #(.startsWith ^String %2 ^String %1)
+               "10." "10.0." "192.168."))
+
+(get scopes "10.0.4.12")
+;;=> ("10.0." "10.")
+(hs/descendants scopes "10.")
+;;=> ("10." "10.0.")
+```
+
+`conj` and `disj` return new values, so updates can be kept as a separate
+version while the original remains unchanged:
+
+```clj
+(def base (hs/hier-set #(.startsWith ^String %2 ^String %1) "team"))
+(def with-read (conj base "team.read"))
+
+(get base "team.read.audit")
+;;=> ("team")
+(get with-read "team.read.audit")
+;;=> ("team.read" "team")
 ```
 
 ## License

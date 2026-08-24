@@ -1,5 +1,10 @@
 (ns hier-set.core-test
-  (:require [hier-set.core :as hs])
+  (:require [clojure.datafy :as datafy]
+            [clojure.string :as str]
+            [clojure.test.check :as tc]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop]
+            [hier-set.core :as hs])
   (:use [hier-set.core :only [hier-set hier-set-by]])
   (:use [clojure.test]))
 
@@ -39,11 +44,71 @@
         (is (= '() (hs/descendants hs "bar")))
         (is (= '("foo.bar" "foo.bar.baz") (hs/descendants hs "foo.bar")))))))
 
+(deftest test-parent-child-queries
+  (let [hs (hier-set with-starts?
+                     "foo" "foo.bar" "foo.bar.baz" "foo.quux"
+                     "quux")]
+    (testing "parent returns the immediate parent"
+      (is (= "foo.bar" (hs/parent hs "foo.bar.baz")))
+      (is (nil? (hs/parent hs "foo")))
+      (is (nil? (hs/parent hs "missing"))))
+    (testing "children returns immediate children in member order"
+      (is (= '("foo.bar" "foo.quux") (hs/children hs "foo")))
+      (is (= '("foo.bar.baz") (hs/children hs "foo.bar")))
+      (is (= '() (hs/children hs "missing"))))
+    (testing "roots returns members without parents in member order"
+      (is (= '("foo" "quux") (hs/roots hs))))
+    (testing "leaves returns members without children in member order"
+      (is (= '("foo.bar.baz" "foo.quux" "quux") (hs/leaves hs)))))
+  (testing "empty sets have no roots or leaves"
+    (let [hs (hier-set with-starts?)]
+      (is (= '() (hs/roots hs)))
+      (is (= '() (hs/leaves hs))))))
+
 (def ^:private testing-data
   ["adam" "adam.nested" "adam.nested.deeply"
    "betty"
    "david" "david.nested.deeply"
    "erin.nested"])
+
+(defn- benchmark-data
+  "Builds a wide hierarchy with a deep path in each branch."
+  []
+  (for [branch (range 50)
+        member (range 200)]
+    (let [root (format "branch-%02d" branch)]
+      (cond
+        (zero? member) root
+        (< member 20) (str root (apply str (map #(format ".%02d" %) (range 1 (inc member)))))
+        :else (str root (apply str (map #(format ".%02d" %) (range 1 20)))
+                   (format ".leaf-%03d" (- member 20)))))))
+
+(defn- benchmark-time
+  [f value]
+  (dotimes [_ 3]
+    (f value))
+  (let [start (System/nanoTime)]
+    (dotimes [_ 5]
+      (f value))
+    (/ (- (System/nanoTime) start) 5e6)))
+
+(deftest ^:benchmark test-large-update-performance
+  (let [members (benchmark-data)
+        baseline (apply hier-set with-starts? members)
+        broad-key "branch"
+        branch-key "branch-00"
+        leaf-key "branch-00.01.02.03.04.05.06.07.08.09.10.11.12.13.14.15.16.17.18.19.leaf-000"
+        conj-time (benchmark-time #(conj % broad-key) baseline)
+        disj-time (benchmark-time #(disj % branch-key) baseline)
+        conj-result (conj baseline broad-key)
+        disj-result (disj baseline branch-key)]
+    (println (format "large-update benchmark: members=%d conj-ms=%.3f disj-ms=%.3f"
+                     (count baseline) conj-time disj-time))
+    (is (= 10001 (count conj-result)))
+    (is (= 9999 (count disj-result)))
+    (is (= 22 (count (get conj-result leaf-key))))
+    (is (= "branch" (last (get conj-result leaf-key))))
+    (is (= '("branch-00.01") (get disj-result "branch-00.01")))))
 
 (deftest test-modification
   (let [orig (apply hier-set with-starts? testing-data)]
@@ -181,3 +246,217 @@
     (is (thrown? AbstractMethodError (.add hs "x")))
     (is (thrown? AbstractMethodError (.remove hs "foo")))
     (is (thrown? AbstractMethodError (.clear hs)))))
+
+(def ^:private path-segment-gen
+  (gen/elements ["a" "b" "c" "d" "e" "f"]))
+
+(def ^:private path-gen
+  (gen/fmap #(str/join "." %)
+            (gen/vector path-segment-gen 1 3)))
+
+(defn- expected-ancestors
+  [members key]
+  (->> members
+       sort
+       (filter #(with-starts? % key))
+       reverse))
+
+(defn- invariant-violations
+  "Returns descriptions instead of using `is`, so this can test bad models too."
+  [coll expected-members query-keys]
+  (let [members (vec expected-members)
+        actual-members (vec (seq coll))
+        actual-parents (.-parents ^hier_set.core.HierSet coll)
+        expected-parent-keys (set members)]
+    (cond-> []
+      (not= actual-members (vec (sort members)))
+      (conj :iteration-order)
+
+      (not= (set (keys actual-parents)) expected-parent-keys)
+      (conj :orphaned-parent-index-entry)
+
+      (some #(not= (seq (hs/ancestors coll %))
+                   (expected-ancestors members %))
+            members)
+      (conj :member-ancestor-chain)
+
+      (some (fn [key]
+              (not= (seq (get coll key))
+                   (seq (expected-ancestors members key))))
+            query-keys)
+      (conj :lookup-containment)
+
+      (some (fn [key]
+              (not= (seq (hs/descendants coll key))
+                   (filter #(with-starts? key %) (sort members))))
+            members)
+      (conj :member-descendant-range))))
+
+(deftest test-invariant-checker-detects-invalid-reference-model
+  (let [coll (hier-set with-starts? "a" "a.b" "c")]
+    (is (contains? (set (invariant-violations coll ["a.b" "c"] []))
+                   :iteration-order))))
+
+(defn- apply-operation
+  [coll members [operation key]]
+  (case operation
+    :conj [(conj coll key) (conj members key)]
+    :disj [(disj coll key) (disj members key)]))
+
+(def ^:private operation-gen
+  (gen/let [pool (gen/vector-distinct path-gen {:min-elements 1 :max-elements 24})
+            initial (gen/fmap set (gen/vector (gen/elements pool) 0 24))
+            operations (gen/vector (gen/tuple (gen/elements [:conj :disj])
+                                             (gen/elements pool))
+                                   1 80)]
+    [pool initial operations]))
+
+(defn- check-after-every-operation
+  [[pool initial operations]]
+  (loop [coll (apply hier-set with-starts? initial)
+         members initial
+         remaining operations]
+    (if (seq (invariant-violations coll members pool))
+      false
+      (if-let [operation (first remaining)]
+        (let [[next-coll next-members] (apply-operation coll members operation)]
+          (recur next-coll next-members (next remaining)))
+        true))))
+
+(deftest property-random-hierarchies-and-mutations
+  (let [result (tc/quick-check 100
+                               (prop/for-all [case operation-gen]
+                                 (check-after-every-operation case)))]
+    (is (:result result) (pr-str result))))
+
+(deftest test-datafy
+  (let [hs (with-meta (hier-set with-starts? "foo" "foo.bar" "quux")
+             {:source :test})]
+    (is (= {:members ["foo" "foo.bar" "quux"]
+            :metadata {:source :test}}
+           (datafy/datafy hs))))
+  (is (= {:members [] :metadata nil}
+         (datafy/datafy (hier-set with-starts?)))))
+
+(deftest test-edn-round-trip
+  (let [original (with-meta (hier-set with-starts?
+                                      "foo" "foo.bar" "foo.bar.baz" "quux")
+                            {:ignored :by-serialization})
+        restored (hs/edn->hier-set with-starts? (hs/->edn original))]
+    (is (instance? hier_set.core.HierSet restored))
+    (is (= (seq original) (seq restored)))
+    (is (= (get original "foo.bar.more")
+           (get restored "foo.bar.more")))
+    (is (= (hs/ancestors original "foo.bar.baz.more")
+           (hs/ancestors restored "foo.bar.baz.more")))
+    (is (nil? (meta restored))))
+  (let [empty-set (hs/edn->hier-set with-starts?
+                                   (hs/->edn (hier-set with-starts?)))]
+    (is (instance? hier_set.core.HierSet empty-set))
+    (is (empty? empty-set))))
+
+(deftest test-edn-validation-and-comparator-limit
+  (testing "invalid serialized values are rejected"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts? nil)))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts? "not-edn")))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts?
+                                   (pr-str {:hier-set/version 1}))))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hs/edn->hier-set with-starts?
+                                   (pr-str {:hier-set/version 1
+                                            :members [42]})))))
+  (testing "custom comparator data remains inspectable but is not serialized"
+    (let [reverse-compare #(compare %2 %1)
+          custom (hier-set-by with-starts? reverse-compare "a" "b")]
+      (is (= ["b" "a"] (:members (datafy/datafy custom))))
+      (is (thrown? clojure.lang.ExceptionInfo (hs/->edn custom))))))
+
+(deftest test-valid-hierarchy
+  (testing "normal hierarchy instances validate"
+    (is (true? (if-let [validate (ns-resolve 'hier-set.core
+                                              'valid-hierarchy?)]
+                 (validate (hier-set with-starts? "foo" "foo.bar" "quux"))
+                 false))))
+  (testing "reports an invalid parent relationship"
+    (let [contents (sorted-set "foo" "foo.bar")
+          corrupted (hs/->HierSet nil with-starts? contents
+                                  {"foo" nil "foo.bar" "wrong-parent"})
+          error (try
+                  (if-let [validate (ns-resolve 'hier-set.core 'validate!)]
+                    (validate corrupted)
+                    (throw (ex-info "validation function is missing"
+                                    {:invariant :missing-api})))
+                  nil
+                  (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? error))
+      (is (re-find #"parent.*foo\.bar.*wrong-parent"
+                   (.getMessage ^Throwable error)))
+      (is (= :parent-index (-> error ex-data :invariant)))))
+  (testing "reports descendants sorted before their ancestors"
+    (let [corrupted (hier-set-by with-starts? #(compare %2 %1)
+                                 "foo" "foo.bar")
+          error (try
+                  (if-let [validate (ns-resolve 'hier-set.core 'validate!)]
+                    (validate corrupted)
+                    (throw (ex-info "validation function is missing"
+                                    {:invariant :missing-api})))
+                  nil
+                  (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? error))
+      (is (re-find #"sort.*foo.*foo\.bar|sort.*foo\.bar.*foo"
+                   (.getMessage ^Throwable error)))
+      (is (= :sort-order (-> error ex-data :invariant)))))
+  (testing "reports a missing containment between an ancestor and descendant"
+    (let [contains? (fn [ancestor member]
+                      (or (= ancestor member)
+                          (and (= ancestor "a") (= member "ac"))))
+          contents (sorted-set "a" "ab" "ac")
+          corrupted (hs/->HierSet nil contains? contents
+                                  {"a" nil "ab" nil "ac" "a"})
+          error (try
+                  (if-let [validate (ns-resolve 'hier-set.core 'validate!)]
+                    (validate corrupted)
+                    (throw (ex-info "validation function is missing"
+                                    {:invariant :missing-api})))
+                  nil
+                  (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? error))
+      (is (re-find #"ancestor a does not contain member ab"
+                   (.getMessage ^Throwable error)))
+      (is (= :containment (-> error ex-data :invariant))))))
+
+(deftest test-set-algebra
+  (let [left (hier-set with-starts? "a" "a.left" "b")
+        right (hier-set with-starts? "a" "a.right" "c")]
+    (testing "union returns a hierarchy-aware set in sorted order"
+      (let [result (hs/union left right)]
+        (is (instance? hier_set.core.HierSet result))
+        (is (= '("a" "a.left" "a.right" "b" "c") (seq result)))
+        (is (= '("a.right" "a") (hs/ancestors result "a.right.deep")))
+        (is (= '("a" "a.left" "a.right")
+               (seq (hs/descendants result "a"))))))
+    (testing "intersection keeps common primary members"
+      (let [result (hs/intersection left right)]
+        (is (instance? hier_set.core.HierSet result))
+        (is (= '("a") (seq result)))
+        (is (= '("a") (hs/ancestors result "a.deep")))))
+    (testing "difference removes right-hand primary members"
+      (let [result (hs/difference left right)]
+        (is (instance? hier_set.core.HierSet result))
+        (is (= '("a.left" "b") (seq result)))
+        (is (= '("a.left") (hs/ancestors result "a.left.deep")))))
+    (testing "empty operands preserve the HierSet result"
+      (is (instance? hier_set.core.HierSet (hs/union (empty left) right)))
+      (is (= (seq left) (seq (hs/union left (empty right)))))
+      (is (empty? (hs/intersection left (empty right))))
+      (is (empty? (hs/difference left left)))))
+  (testing "incompatible comparators are rejected"
+    (let [natural (hier-set-by with-starts? compare "a")
+          reverse (hier-set-by with-starts? #(compare %2 %1) "a")]
+      (doseq [operation [hs/union hs/intersection hs/difference]]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"incompatible HierSet comparators"
+                              (operation natural reverse)))))))

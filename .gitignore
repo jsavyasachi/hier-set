@@ -9,4 +9,6 @@
 /target
 .cpcache/
 target/
+.worktrees/
+.codex-runs/
 release-notes.md
