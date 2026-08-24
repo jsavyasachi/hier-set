@@ -1,5 +1,6 @@
 (ns hier-set.core-test
   (:require [clojure.datafy :as datafy]
+            [clojure.string :as str]
             [clojure.test.check :as tc]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
@@ -250,7 +251,7 @@
   (gen/elements ["a" "b" "c" "d" "e" "f"]))
 
 (def ^:private path-gen
-  (gen/fmap #(clojure.string/join "." %)
+  (gen/fmap #(str/join "." %)
             (gen/vector path-segment-gen 1 3)))
 
 (defn- expected-ancestors
