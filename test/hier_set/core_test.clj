@@ -372,3 +372,57 @@
           custom (hier-set-by with-starts? reverse-compare "a" "b")]
       (is (= ["b" "a"] (:members (datafy/datafy custom))))
       (is (thrown? clojure.lang.ExceptionInfo (hs/->edn custom))))))
+
+(deftest test-valid-hierarchy
+  (testing "normal hierarchy instances validate"
+    (is (true? (if-let [validate (ns-resolve 'hier-set.core
+                                              'valid-hierarchy?)]
+                 (validate (hier-set with-starts? "foo" "foo.bar" "quux"))
+                 false))))
+  (testing "reports an invalid parent relationship"
+    (let [contents (sorted-set "foo" "foo.bar")
+          corrupted (hs/->HierSet nil with-starts? contents
+                                  {"foo" nil "foo.bar" "wrong-parent"})
+          error (try
+                  (if-let [validate (ns-resolve 'hier-set.core 'validate!)]
+                    (validate corrupted)
+                    (throw (ex-info "validation function is missing"
+                                    {:invariant :missing-api})))
+                  nil
+                  (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? error))
+      (is (re-find #"parent.*foo\.bar.*wrong-parent"
+                   (.getMessage ^Throwable error)))
+      (is (= :parent-index (-> error ex-data :invariant)))))
+  (testing "reports descendants sorted before their ancestors"
+    (let [corrupted (hier-set-by with-starts? #(compare %2 %1)
+                                 "foo" "foo.bar")
+          error (try
+                  (if-let [validate (ns-resolve 'hier-set.core 'validate!)]
+                    (validate corrupted)
+                    (throw (ex-info "validation function is missing"
+                                    {:invariant :missing-api})))
+                  nil
+                  (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? error))
+      (is (re-find #"sort.*foo.*foo\.bar|sort.*foo\.bar.*foo"
+                   (.getMessage ^Throwable error)))
+      (is (= :sort-order (-> error ex-data :invariant)))))
+  (testing "reports a missing containment between an ancestor and descendant"
+    (let [contains? (fn [ancestor member]
+                      (or (= ancestor member)
+                          (and (= ancestor "a") (= member "ac"))))
+          contents (sorted-set "a" "ab" "ac")
+          corrupted (hs/->HierSet nil contains? contents
+                                  {"a" nil "ab" nil "ac" "a"})
+          error (try
+                  (if-let [validate (ns-resolve 'hier-set.core 'validate!)]
+                    (validate corrupted)
+                    (throw (ex-info "validation function is missing"
+                                    {:invariant :missing-api})))
+                  nil
+                  (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? error))
+      (is (re-find #"ancestor a does not contain member ab"
+                   (.getMessage ^Throwable error)))
+      (is (= :containment (-> error ex-data :invariant))))))

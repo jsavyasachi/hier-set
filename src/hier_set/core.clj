@@ -204,6 +204,68 @@ include `key` when `strict?` is true. The default is false."))
           parents (first (reduce find-parent [{} ()] contents))]
       (HierSet. nil hcontains? contents parents))))
 
+(defn validate!
+  "Validates the ordering, containment, and parent-index invariants of a
+  `HierSet`. Returns true when valid and throws `ExceptionInfo` describing the
+  first violated invariant otherwise."
+  [^HierSet coll]
+  (let [^PersistentTreeSet contents (.-contents coll)
+        hcontains? (.-hcontains_QMARK_ coll)
+        parents (.-parents coll)
+        comparator (or (.comparator contents) compare)
+        compare-members (if (ifn? comparator)
+                         comparator
+                         (fn [a b]
+                           (.compare ^java.util.Comparator comparator a b)))
+        fail (fn [invariant message data]
+               (throw (ex-info message (assoc data :invariant invariant))))]
+    (doseq [ancestor contents
+            descendant contents
+            :when (and (not= ancestor descendant)
+                       (hcontains? ancestor descendant))]
+      (when (pos? (compare-members ancestor descendant))
+        (fail :sort-order
+              (str "sort order places ancestor " ancestor
+                   " after descendant " descendant)
+              {:ancestor ancestor :descendant descendant}))
+      (doseq [between (subseq contents >= ancestor <= descendant)]
+        (when-not (hcontains? ancestor between)
+          (fail :containment
+                (str "ancestor " ancestor " does not contain member " between
+                     " between it and descendant " descendant)
+                {:ancestor ancestor :member between :descendant descendant}))))
+    (let [expected (first (reduce (fn [[expected-parents ancestors] key]
+                                   (let [parent (first (drop-while
+                                                        #(not (hcontains? % key))
+                                                        ancestors))]
+                                     [(assoc expected-parents key parent)
+                                      (cons key ancestors)]))
+                                 [{} ()]
+                                 contents))]
+      (doseq [[member expected-parent] expected]
+        (when-not (= expected-parent (get parents member ::missing))
+          (fail :parent-index
+                (str "parent index maps member " member " to "
+                     (pr-str (get parents member)) "; expected "
+                     (pr-str expected-parent))
+                {:member member
+                 :actual-parent (get parents member)
+                 :expected-parent expected-parent})))
+      (doseq [member (keys parents)
+              :when (not (contains? expected member))]
+        (fail :parent-index
+              (str "parent index contains unexpected member " member)
+              {:member member})))
+    true))
+
+(defn valid-hierarchy?
+  "Returns true when `coll` satisfies all `HierSet` invariants."
+  [^HierSet coll]
+  (try
+    (validate! coll)
+    (catch clojure.lang.ExceptionInfo _
+      false)))
+
 (defn hier-set
   "Creates a hierarchical set with the containment predicate `hcontains?` and
 primary members `keys`. The `hcontains?` predicate should be a function with
