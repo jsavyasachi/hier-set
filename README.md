@@ -53,6 +53,13 @@ Use the `hier-set` and `hier-set-by` constructor functions in the
 `hier-set.core/descendants` functions return lazy sequences of the ancestors
 and descendants of a provided key.
 
+`clojure.datafy/datafy` returns a plain map containing the sorted primary
+members and set metadata. Use `hier-set.core/->edn` and
+`hier-set.core/edn->hier-set` to round-trip primary members; the containment
+predicate must be supplied when reading. EDN serialization supports only
+string or keyword members with natural ordering, and rejects custom
+comparators because comparator functions cannot be safely serialized.
+
 ## Compatibility
 
 The library requires Clojure 1.10 or later and JDK 8 or later. The library is
