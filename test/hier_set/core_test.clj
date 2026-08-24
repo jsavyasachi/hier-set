@@ -181,3 +181,36 @@
     (is (thrown? AbstractMethodError (.add hs "x")))
     (is (thrown? AbstractMethodError (.remove hs "foo")))
     (is (thrown? AbstractMethodError (.clear hs)))))
+
+(deftest test-set-algebra
+  (let [left (hier-set with-starts? "a" "a.left" "b")
+        right (hier-set with-starts? "a" "a.right" "c")]
+    (testing "union returns a hierarchy-aware set in sorted order"
+      (let [result (hs/union left right)]
+        (is (instance? hier_set.core.HierSet result))
+        (is (= '("a" "a.left" "a.right" "b" "c") (seq result)))
+        (is (= '("a.right" "a") (hs/ancestors result "a.right.deep")))
+        (is (= '("a" "a.left" "a.right")
+               (seq (hs/descendants result "a"))))))
+    (testing "intersection keeps common primary members"
+      (let [result (hs/intersection left right)]
+        (is (instance? hier_set.core.HierSet result))
+        (is (= '("a") (seq result)))
+        (is (= '("a") (hs/ancestors result "a.deep")))))
+    (testing "difference removes right-hand primary members"
+      (let [result (hs/difference left right)]
+        (is (instance? hier_set.core.HierSet result))
+        (is (= '("a.left" "b") (seq result)))
+        (is (= '("a.left") (hs/ancestors result "a.left.deep")))))
+    (testing "empty operands preserve the HierSet result"
+      (is (instance? hier_set.core.HierSet (hs/union (empty left) right)))
+      (is (= (seq left) (seq (hs/union left (empty right)))))
+      (is (empty? (hs/intersection left (empty right))))
+      (is (empty? (hs/difference left left)))))
+  (testing "incompatible comparators are rejected"
+    (let [natural (hier-set-by with-starts? compare "a")
+          reverse (hier-set-by with-starts? #(compare %2 %1) "a")]
+      (doseq [operation [hs/union hs/intersection hs/difference]]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"incompatible HierSet comparators"
+                              (operation natural reverse)))))))

@@ -131,3 +131,55 @@ Lookup in the set returns a seq of all primary members that are ancestors of the
 provided key. It returns nil if the provided key is not a descendant of a
 primary member."
   [hcontains? & keys] (apply hier-set-by hcontains? compare keys))
+
+(defn- compatible!
+  [^HierSet left ^HierSet right]
+  (let [left-comparator (.comparator ^Sorted left)
+        right-comparator (.comparator ^Sorted right)
+        left-hcontains? (.-hcontains? left)
+        right-hcontains? (.-hcontains? right)]
+    (when-not (and (= left-comparator right-comparator)
+                   (= left-hcontains? right-hcontains?))
+      (throw (ex-info "incompatible HierSet comparators or containment predicates"
+                      {:left-comparator left-comparator
+                       :right-comparator right-comparator
+                       :left-hcontains? left-hcontains?
+                       :right-hcontains? right-hcontains?})))
+    left))
+
+(defn union
+  "Returns a HierSet containing the primary members of `left` and `right`.
+
+  Both sets must have equal comparators and containment predicates. Otherwise
+  an ExceptionInfo is thrown rather than constructing a set with ambiguous
+  hierarchy semantics."
+  [^HierSet left ^HierSet right]
+  (compatible! left right)
+  (apply hier-set-by (.-hcontains? left) (.comparator ^Sorted left)
+         (concat (seq left) (seq right))))
+
+(defn- primary-member?
+  [^HierSet coll key]
+  (.contains ^PersistentTreeSet (.-contents coll) key))
+
+(defn intersection
+  "Returns a HierSet containing primary members present in both sets.
+
+  Both sets must have equal comparators and containment predicates. Otherwise
+  an ExceptionInfo is thrown rather than constructing a set with ambiguous
+  hierarchy semantics."
+  [^HierSet left ^HierSet right]
+  (compatible! left right)
+  (apply hier-set-by (.-hcontains? left) (.comparator ^Sorted left)
+         (filter #(primary-member? right %) (seq left))))
+
+(defn difference
+  "Returns a HierSet containing primary members in `left` but not `right`.
+
+  Both sets must have equal comparators and containment predicates. Otherwise
+  an ExceptionInfo is thrown rather than constructing a set with ambiguous
+  hierarchy semantics."
+  [^HierSet left ^HierSet right]
+  (compatible! left right)
+  (apply hier-set-by (.-hcontains? left) (.comparator ^Sorted left)
+         (remove #(primary-member? right %) (seq left))))
