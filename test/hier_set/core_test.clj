@@ -1,5 +1,8 @@
 (ns hier-set.core-test
   (:require [hier-set.core :as hs])
+  (:require [clojure.test.check :as tc]
+            [clojure.test.check.generators :as gen]
+            [clojure.test.check.properties :as prop])
   (:use [hier-set.core :only [hier-set hier-set-by]])
   (:use [clojure.test]))
 
@@ -220,3 +223,85 @@
     (is (thrown? AbstractMethodError (.add hs "x")))
     (is (thrown? AbstractMethodError (.remove hs "foo")))
     (is (thrown? AbstractMethodError (.clear hs)))))
+
+(def ^:private path-segment-gen
+  (gen/elements ["a" "b" "c" "d" "e" "f"]))
+
+(def ^:private path-gen
+  (gen/fmap #(clojure.string/join "." %)
+            (gen/vector path-segment-gen 1 3)))
+
+(defn- expected-ancestors
+  [members key]
+  (->> members
+       sort
+       (filter #(with-starts? % key))
+       reverse))
+
+(defn- invariant-violations
+  "Returns descriptions instead of using `is`, so this can test bad models too."
+  [coll expected-members query-keys]
+  (let [members (vec expected-members)
+        actual-members (vec (seq coll))
+        actual-parents (.-parents ^hier_set.core.HierSet coll)
+        expected-parent-keys (set members)]
+    (cond-> []
+      (not= actual-members (vec (sort members)))
+      (conj :iteration-order)
+
+      (not= (set (keys actual-parents)) expected-parent-keys)
+      (conj :orphaned-parent-index-entry)
+
+      (some #(not= (seq (hs/ancestors coll %))
+                   (expected-ancestors members %))
+            members)
+      (conj :member-ancestor-chain)
+
+      (some (fn [key]
+              (not= (seq (get coll key))
+                   (seq (expected-ancestors members key))))
+            query-keys)
+      (conj :lookup-containment)
+
+      (some (fn [key]
+              (not= (seq (hs/descendants coll key))
+                   (filter #(with-starts? key %) (sort members))))
+            members)
+      (conj :member-descendant-range))))
+
+(deftest test-invariant-checker-detects-invalid-reference-model
+  (let [coll (hier-set with-starts? "a" "a.b" "c")]
+    (is (contains? (set (invariant-violations coll ["a.b" "c"] []))
+                   :iteration-order))))
+
+(defn- apply-operation
+  [coll members [operation key]]
+  (case operation
+    :conj [(conj coll key) (conj members key)]
+    :disj [(disj coll key) (disj members key)]))
+
+(def ^:private operation-gen
+  (gen/let [pool (gen/vector-distinct path-gen {:min-elements 1 :max-elements 24})
+            initial (gen/fmap set (gen/vector (gen/elements pool) 0 24))
+            operations (gen/vector (gen/tuple (gen/elements [:conj :disj])
+                                             (gen/elements pool))
+                                   1 80)]
+    [pool initial operations]))
+
+(defn- check-after-every-operation
+  [[pool initial operations]]
+  (loop [coll (apply hier-set with-starts? initial)
+         members initial
+         remaining operations]
+    (if (seq (invariant-violations coll members pool))
+      false
+      (if-let [operation (first remaining)]
+        (let [[next-coll next-members] (apply-operation coll members operation)]
+          (recur next-coll next-members (next remaining)))
+        true))))
+
+(deftest property-random-hierarchies-and-mutations
+  (let [result (tc/quick-check 100
+                               (prop/for-all [case operation-gen]
+                                 (check-after-every-operation case)))]
+    (is (:result result) (pr-str result))))
