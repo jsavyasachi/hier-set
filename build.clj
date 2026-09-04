@@ -24,12 +24,12 @@
                 :version version
                 :basis @basis
                 :src-dirs ["src"]
-                :scm {:url "https://github.com/jsavyasachi/hier-set"
-                      :connection "scm:git:https://github.com/jsavyasachi/hier-set.git"
-                      :developerConnection "scm:git:ssh://git@github.com/jsavyasachi/hier-set.git"
+                :scm {:url "https://github.com/savyalabs/hier-set"
+                      :connection "scm:git:https://github.com/savyalabs/hier-set.git"
+                      :developerConnection "scm:git:ssh://git@savyalabs/hier-set.git"
                       :tag (str "v" version)}
                 :pom-data [[:description "A Clojure hierarchical set."]
-                           [:url "https://github.com/jsavyasachi/hier-set"]
+                           [:url "https://github.com/savyalabs/hier-set"]
                            [:licenses
                             [:license
                              [:name "Eclipse Public License 1.0"]
